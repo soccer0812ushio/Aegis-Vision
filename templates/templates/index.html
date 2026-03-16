@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>FX AI分析</title>
+<style>
+:root{--bg:#0a0a0f;--surface:#13131a;--border:#2a2a3a;--accent:#3b82f6;--text:#e2e8f0;--muted:#64748b;--gold:#f59e0b;--btc:#f97316;}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,'Hiragino Sans',sans-serif;}
+header{position:sticky;top:0;z-index:100;background:rgba(10,10,15,0.95);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:12px 16px;}
+header h1{font-size:1.1rem;font-weight:700;}
+header .sub{font-size:0.7rem;color:var(--muted);}
+main{padding:16px;max-width:640px;margin:0 auto;}
+.symbol-row{display:flex;gap:10px;margin-bottom:16px;}
+.sym-btn{flex:1;padding:14px 8px;border-radius:12px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:0.95rem;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.sym-btn .sym-icon{font-size:1.4rem;}
+.sym-btn .sym-name{font-size:0.75rem;color:var(--muted);}
+.sym-btn.active-gold{border-color:var(--gold);background:rgba(245,158,11,.12);color:var(--gold);}
+.sym-btn.active-gold .sym-name{color:var(--gold);}
+.sym-btn.active-btc{border-color:var(--btc);background:rgba(249,115,22,.12);color:var(--btc);}
+.sym-btn.active-btc .sym-name{color:var(--btc);}
+.tv-links{display:flex;gap:10px;margin-bottom:16px;}
+.tv-link{flex:1;padding:10px;border-radius:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);text-decoration:none;font-size:0.8rem;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.tv-link .tv-sym{font-weight:700;color:var(--accent);}
+#analyzeBtn{width:100%;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),#6366f1);color:#fff;font-size:1.05rem;font-weight:700;cursor:pointer;margin-bottom:20px;display:flex;align-items:center;justify-content:center;gap:8px;}
+#analyzeBtn:disabled{opacity:.45;cursor:default;}
+#loader{display:none;text-align:center;padding:32px 0;}
+.spinner{width:44px;height:44px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:spin .8s linear infinite;margin:0 auto 12px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#stepText{color:var(--muted);font-size:0.85rem;}
+#errorBox{display:none;background:rgba(239,68,68,.12);border:1px solid #ef4444;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:0.85rem;color:#fca5a5;}
+#resultSection{display:none;}
+.result-header{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-start;}
+.result-header .sym-label{font-weight:700;font-size:1.05rem;}
+.result-header .timestamp{font-size:0.7rem;color:var(--muted);text-align:right;}
+.charts-scroll{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;}
+.chart-card{flex:0 0 88vw;max-width:400px;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;scroll-snap-align:start;}
+.chart-card .tf-label{font-size:0.75rem;font-weight:700;color:var(--muted);padding:8px 12px;}
+.chart-card img{width:100%;display:block;}
+.analysis-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;font-size:0.88rem;line-height:1.7;}
+.analysis-card h3{font-size:1rem;margin:14px 0 6px;}
+.analysis-card h3:first-child{margin-top:0;}
+.analysis-card ul{padding-left:18px;}
+.analysis-card li{margin-bottom:4px;}
+.analysis-card table{width:100%;border-collapse:collapse;margin:8px 0;}
+.analysis-card th,.analysis-card td{border:1px solid var(--border);padding:7px 10px;text-align:left;font-size:0.83rem;}
+.analysis-card th{background:rgba(255,255,255,.05);color:var(--muted);}
+.analysis-card strong{color:#fff;}
+.analysis-card p{margin-bottom:6px;}
+footer{text-align:center;padding:24px 16px;font-size:0.7rem;color:var(--muted);border-top:1px solid var(--border);margin-top:24px;}
+footer a{color:var(--accent);text-decoration:none;}
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 FX AI 分析 - Aegis Vision</h1>
+  <div class="sub">Powered by Claude AI</div>
+</header>
+<main>
+  <div class="symbol-row">
+    <button class="sym-btn active-gold" id="btn-XAUUSD" onclick="selectSymbol('XAUUSD')">
+      <span class="sym-icon">🥇</span><span>XAUUSD</span><span class="sym-name">Gold / USD</span>
+    </button>
+    <button class="sym-btn" id="btn-BTCUSD" onclick="selectSymbol('BTCUSD')">
+      <span class="sym-icon">₿</span><span>BTCUSD</span><span class="sym-name">Bitcoin / USD</span>
+    </button>
+  </div>
+  <div class="tv-links">
+    <a class="tv-link" href="https://jp.tradingview.com/chart/?symbol=OANDA:XAUUSD" target="_blank">
+      <span>📈</span><span class="tv-sym">OANDA:XAUUSD</span><span>TradingViewで開く</span>
+    </a>
+    <a class="tv-link" href="https://jp.tradingview.com/chart/?symbol=BITSTAMP:BTCUSD" target="_blank">
+      <span>📈</span><span class="tv-sym">BTCUSD</span><span>TradingViewで開く</span>
+    </a>
+  </div>
+  <button id="analyzeBtn" onclick="startAnalysis()">🤖 AI分析スタート</button>
+  <div id="loader"><div class="spinner"></div><div id="stepText">データ取得中...</div></div>
+  <div id="errorBox"></div>
+  <div id="resultSection">
+    <div class="result-header">
+      <div class="sym-label" id="resSymbol"></div>
+      <div class="timestamp" id="resTime"></div>
+    </div>
+    <div class="charts-scroll" id="chartsRow"></div>
+    <div class="analysis-card" id="analysisText"></div>
+  </div>
+</main>
+<footer>
+  ※データはYahoo Finance（遅延あり）を使用。投資の最終判断はご自身で。<br><br>
+  <a href="https://jp.tradingview.com/chart/?symbol=OANDA:XAUUSD" target="_blank">TradingView（OANDA:XAUUSD）</a>
+</footer>
+<script>
+let currentSymbol="XAUUSD";
+function selectSymbol(sym){
+  currentSymbol=sym;
+  document.getElementById("btn-XAUUSD").className="sym-btn"+(sym==="XAUUSD"?" active-gold":"");
+  document.getElementById("btn-BTCUSD").className="sym-btn"+(sym==="BTCUSD"?" active-btc":"");
+}
+const steps=["チャートデータ取得中 (1/5)…","チャートデータ取得中 (2/5)…","チャートデータ取得中 (3/5)…","チャートデータ取得中 (4/5)…","チャートデータ取得中 (5/5)…","AIが分析しています…"];
+let stepIdx=0,stepTimer=null;
+function startStepText(){stepIdx=0;document.getElementById("stepText").textContent=steps[0];stepTimer=setInterval(()=>{stepIdx=Math.min(stepIdx+1,steps.length-1);document.getElementById("stepText").textContent=steps[stepIdx];},4000);}
+function stopStepText(){if(stepTimer)clearInterval(stepTimer);}
+async function startAnalysis(){
+  document.getElementById("analyzeBtn").disabled=true;
+  document.getElementById("loader").style.display="block";
+  document.getElementById("resultSection").style.display="none";
+  document.getElementById("errorBox").style.display="none";
+  startStepText();
+  try{
+    const res=await fetch("/api/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({symbol:currentSymbol})});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||"サーバーエラー");
+    renderResult(data);
+  }catch(e){
+    document.getElementById("errorBox").textContent="エラー: "+e.message;
+    document.getElementById("errorBox").style.display="block";
+  }finally{
+    stopStepText();
+    document.getElementById("loader").style.display="none";
+    document.getElementById("analyzeBtn").disabled=false;
+  }
+}
+function renderResult(data){
+  document.getElementById("resSymbol").textContent=data.symbol+"  "+data.label;
+  document.getElementById("resTime").textContent=data.timestamp;
+  const row=document.getElementById("chartsRow");
+  row.innerHTML="";
+  data.charts.forEach(c=>{
+    const card=document.createElement("div");
+    card.className="chart-card";
+    card.innerHTML=`<div class="tf-label">${c.label}</div><img src="data:image/png;base64,${c.img}" loading="lazy">`;
+    row.appendChild(card);
+  });
+  document.getElementById("analysisText").innerHTML=md2html(data.analysis);
+  document.getElementById("resultSection").style.display="block";
+  document.getElementById("resultSection").scrollIntoView({behavior:"smooth"});
+}
+function md2html(md){
+  return md
+    .replace(/^### (.+)$/gm,"<h3>$1</h3>")
+    .replace(/^## (.+)$/gm,"<h2>$1</h2>")
+    .replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g,"<em>$1</em>")
+    .replace(/^\| (.+) \|$/gm,(m)=>{const cells=m.split("|").slice(1,-1).map(c=>c.trim());if(cells.every(c=>/^[-:]+$/.test(c)))return"";return"<tr>"+cells.map(c=>`<td>${c}</td>`).join("")+"</tr>";})
+    .replace(/(<tr>.*<\/tr>\n?)+/g,s=>`<table>${s}</table>`)
+    .replace(/^- (.+)$/gm,"<li>$1</li>")
+    .replace(/(<li>.*<\/li>\n?)+/g,s=>`<ul>${s}</ul>`)
+    .replace(/\n\n/g,"</p><p>")
+    .replace(/(^|\n)(?![<\n])(.+)/g,(m,pre,line)=>`<p>${line}</p>`);
+}
+</script>
+</body>
+</html>
